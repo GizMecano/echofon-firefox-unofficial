@@ -52,7 +52,7 @@ var EchofonCommon = {
     if (!this.appInfo) {
       this.appInfo = this.Cc["@mozilla.org/xre/app-info;1"].getService(this.Ci.nsIXULAppInfo);
     }
-    return (this.appInfo.name == "Echofon") ? true : false;
+    return this.appInfo.name == "Echofon";
   },
 
   geckoGetRv: function() {
@@ -76,7 +76,7 @@ var EchofonCommon = {
     if (!this.FFVersion) {
       this.FFVersion = this.geckoGetRv();
     }
-    return (this.FFVersion >= 2.0) ? true : false;
+    return this.FFVersion >= 2.0;
   },
 
   twitterURL: function(path) {
@@ -167,7 +167,7 @@ var EchofonCommon = {
 
       var textnode = EchofonCommon.buildRichTextNode(uid, msg, user, elem);
       textnode.className = "echofon-status-body";
-      elem.setAttribute("text", msg.text);
+      elem.setAttribute("text", msg.full_text);
       elem.setAttribute("protected", user.protected ? 1 : 0);
       if (msg.has_mention && msg.type == 'home') {
         elem.setAttribute("highlighted", true);
@@ -185,7 +185,7 @@ var EchofonCommon = {
         info.appendChild(topTweet);
       }
 
-      var label = EchofonCommon.getLocalTimeForDate(msg.created_at, (elem.appMode == 'window' || msg.type == 'user-timeline') ? false : true);
+      var label = EchofonCommon.getLocalTimeForDate(msg.created_at, elem.appMode != 'window' && msg.type != 'user-timeline');
       var time = EchofonCommon.createAnchorText(EchofonCommon.twitterURL(user.screen_name + "/statuses/" + permalink),
                                                 label,
                                                 "link",
@@ -375,7 +375,7 @@ var EchofonCommon = {
   convertLinksWithRegExp: function(uid, msg, elem, parent_elem) {
 
     var escape = this.Cc["@mozilla.org/feed-unescapehtml;1"].getService(this.Ci.nsIScriptableUnescapeHTML);
-    var text = escape.unescape(msg.text.replace(/&amp;/g,"&"));
+    var text = escape.unescape((msg.full_text || msg.text).replace(/&amp;/g,"&"));
 
     var pat = /((https?\:\/\/|www\.)[^\s]+)([^\w\s\d]*)/g;
     var re = /[!.,;:)}\]]+$/;
@@ -437,7 +437,7 @@ var EchofonCommon = {
     // building tweet with urls, mentions and hashtags.
     //
     function unescape(a) {
-      var escape = this.Cc["@mozilla.org/feed-unescapehtml;1"].getService(this.Ci.nsIScriptableUnescapeHTML);
+      var escape = Cc["@mozilla.org/feed-unescapehtml;1"].getService(Ci.nsIScriptableUnescapeHTML);
       if (a[0] == ' ') {
         return ' ' + escape.unescape(a);
       }
@@ -447,7 +447,7 @@ var EchofonCommon = {
     }
 
     var index = 0;
-    var text = msg.text;
+    var text = msg.full_text || msg.text;
     for (var i in entities) {
       if (!entities.hasOwnProperty(i)) continue;
       var type = entities[i]['type'];
@@ -677,7 +677,7 @@ var EchofonCommon = {
   },
 
   reloadTimeline: function() {
-    EchofonCommon.notify("refresh", {user_id:this.pref().getIntPref("activeUserId")});
+    EchofonCommon.notify("refresh", {user_id:this.pref().getCharPref("activeUserIdStr")});
   },
 
   openComposeWindow: function(parentNode, text, cursorToBeginning) {
@@ -722,7 +722,7 @@ var EchofonCommon = {
     var panel = this.composePanel();
     if (panel.state == "open") return null;
 
-    panel.user_id = EchofonCommon.pref().getIntPref("activeUserId");
+    panel.user_id = EchofonCommon.pref().getCharPref("activeUserIdStr");
 
     if (cursorToBeginning) {
       panel.textbox.value = ' ' + text;
@@ -1001,8 +1001,8 @@ var EchofonCommon = {
   Cc: this.Components.classes,
   Ci: this.Components.interfaces
 
-}
 };
+}
 
 function echofonObserver()
 {
@@ -1025,7 +1025,7 @@ echofonObserver.prototype.observe = function(subject, topic, data)
   if (this[msg.state]) {
     this[msg.state](msg.data);
   }
-}
+};
 
 echofonObserver.prototype.failedToSendMessage = function(context)
 {
@@ -1037,7 +1037,7 @@ echofonObserver.prototype.failedToSendMessage = function(context)
     }
     panel.error = context.error;
   }
-}
+};
 
 echofonObserver.prototype.updateFavorite = function(tweet)
 {
@@ -1045,7 +1045,7 @@ echofonObserver.prototype.updateFavorite = function(tweet)
   for (var i = 0; i < elems.length; ++i) {
     elems[i].setFavorited(tweet.state);
   }
-}
+};
 
 echofonObserver.prototype.statusDidGet = function(resp)
 {
@@ -1053,7 +1053,7 @@ echofonObserver.prototype.statusDidGet = function(resp)
   if (e) {
     e.tweet = resp;
   }
-}
+};
 
 echofonObserver.prototype.didGetPlaces = function(places)
 {
@@ -1061,9 +1061,9 @@ echofonObserver.prototype.didGetPlaces = function(places)
     this.composePanel().places = places;
   }
   catch (e) {}
-}
+};
 
 echofonObserver.prototype.remove = function()
 {
   Components.classes["@mozilla.org/observer-service;1"].getService(Components.interfaces.nsIObserverService).removeObserver(this, "echofon-status");
-}
+};

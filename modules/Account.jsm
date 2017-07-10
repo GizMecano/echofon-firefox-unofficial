@@ -6,7 +6,6 @@
 
 var EXPORTED_SYMBOLS = ["EchofonAccountManager"];
 
-
 var gEchofonAccountManager = null;
 
 function EchofonAccountManager()
@@ -42,12 +41,12 @@ EchofonAccountManager.prototype = {
   },
 
   get: function(user_id) {
-    var acct = null
+    var acct = null;
     if (user_id) {
       acct = this.accounts[user_id];
     }
     else {
-      acct = this.accounts[this.pref.getIntPref("activeUserId")];
+      acct = this.accounts[this.pref.getCharPref("activeUserIdStr")];
     }
     if (acct) {
       this.addMethods(acct);
@@ -82,28 +81,28 @@ EchofonAccountManager.prototype = {
   addMethods: function(acct) {
     acct.setValue = function(name, value) {
       this[name] = value;
-    }
+    };
     acct.needToAlertOAuthError = function() {
       val = this['oauth_error_count'];
       if (!val) val = 0;
       ++val;
-      var ret = (val >= 2) ? true : false;
+      var ret = val >= 2;
       this['oauth_error_count'] = val;
       Components.utils.reportError("Failed to OAuth (retry count = " + val + ")");
       this.save();
       return ret;
-    }
+    };
     acct.clearOAuthError = function() {
         this['oauth_error_count'] = 0;
         this.save();
-    },
+    };
 
     acct.save = function() {
       gEchofonAccountManager.save();
-    }
+    };
     acct.destroy = function() {
       gEchofonAccountManager.removeAccount(this.user_id);
-    }
+    };
   }
 };
 
@@ -112,4 +111,4 @@ EchofonAccountManager.instance = function() {
     gEchofonAccountManager = new EchofonAccountManager();
   }
   return gEchofonAccountManager;
-}
+};

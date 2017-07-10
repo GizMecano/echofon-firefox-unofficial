@@ -179,7 +179,7 @@ TimelineBase.prototype = {
     for (var i in this.tweets) {
       var t = this.tweets[i];
       if (EchofonModel.DBM._64bitsub(t.id, id) > 0) continue;
-      if (t.unread == false) break;
+      if (!t.unread) break;
       t.unread = false;
       c++;
     }
@@ -433,12 +433,12 @@ Timelines.prototype = {
     if (tweets.length == 0) return [];
     var ret = tweets.slice(0, 20);
     var last = ret[ret.length-1];
-    if (last.unread == false) return ret;
+    if (!last.unread) return ret;
 
     for (var i = ret.length; i < tweets.length; ++i) {
       var t = tweets[i];
       ret.push(tweets[i]);
-      if (t.unread == false) {
+      if (!t.unread) {
         return ret;
       }
     }
@@ -833,13 +833,13 @@ TimelineLoader.prototype = {
 
       var tweet = new EchofonModel.Status(obj[i], type, this.token.user_id);
       if (tweet.retweeter_user_id) {
-        if (EchofonModel.NoRetweet.wantsRetweet(this.token.user_id, tweet.retweeter_user_id) == false) {
+        if (!EchofonModel.NoRetweet.wantsRetweet(this.token.user_id, tweet.retweeter_user_id)) {
         continue;
         }
       }
       //if (EchofonModel.Status.exist(this.token.user_id, type, tweet.id)) continue;
 
-      tweet.unread = (this.isUnread(tweet)) ? true : false;
+      tweet.unread = this.isUnread(tweet);
       if (writer) {
         writer.addTweet(tweet);
       }
@@ -1130,13 +1130,22 @@ TimelineLoader.prototype = {
   },
 
   status_received: function(status) {
+    // TODO: remove when Twitter changes Streaming API to extended mode
+    status.full_text = (status.extended_tweet && status.extended_tweet.full_text) || status.text;
+    status.entities = (status.extended_tweet && status.extended_tweet.entities) || status.entities;
+    if (status.retweeted_status) {
+      var retweet = status.retweeted_status;
+      retweet.full_text = (retweet.extended_tweet && retweet.extended_tweet.full_text) || retweet.text;
+      retweet.entities = (retweet.extended_tweet && retweet.extended_tweet.entities) || retweet.entities;
+    }
+
     var tweet = new EchofonModel.Status(status, HOME_TIMELINE, this.token.user_id);
 
     // Do not display blocked user
     if (EchofonModel.Blocking.isBlocking(this.token.user_id, tweet.user.id)) return;
 
     if (tweet.retweeter_user_id) {
-      if (EchofonModel.NoRetweet.wantsRetweet(this.token.user_id, tweet.retweeter_user_id) == false) {
+      if (!EchofonModel.NoRetweet.wantsRetweet(this.token.user_id, tweet.retweeter_user_id)) {
         return;
       }
     }
@@ -1150,7 +1159,7 @@ TimelineLoader.prototype = {
       else {
         // if tweet has 'text@screen_name', it should be discarded
         var pat = new RegExp("@(" + this.token.screen_name + ")([^A-Za-z_].*)?$");
-        if (pat.test(tweet.text)) {
+        if (pat.test(tweet.full_text)) {
           return;
         }
         tweet.type = SEARCH_TIMELINE;
@@ -1189,7 +1198,7 @@ TimelineLoader.prototype = {
       var mention = new EchofonModel.Status(status, MENTIONS_TIMELINE, this.token.user_id);
       mention.insertIntoDB();
       // do not mark read if it's already in home timeline
-      if (isInHome == false) {
+      if (!isInHome) {
         mention.unread = true;
       }
       if (this.timelines.insert(mention)) {
@@ -1206,9 +1215,9 @@ TimelineLoader.prototype = {
     switch (obj['event']) {
       case 'unfavorite':
       case 'favorite':
-	if (obj.source.id == this.token.user_id) {
-          this.timelines.toggleFavorite(obj['target_object'].id_str, (obj['event'] == 'favorite') ? true : false);
-	}
+        if (obj.source.id == this.token.user_id) {
+          this.timelines.toggleFavorite(obj['target_object'].id_str, obj['event'] == 'favorite');
+        }
         this.notifyObservers("eventDidReceive", obj);
         break;
 

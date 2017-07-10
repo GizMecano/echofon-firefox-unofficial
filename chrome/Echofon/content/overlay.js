@@ -8,7 +8,7 @@ if (typeof EchofonOverlay == 'undefined') {
 
 var EchofonOverlay = {
 
-  _messageQueue: new Array(),
+  _messageQueue: [],
   _hasFocus: false,
   _focusInText: false,
   _askedToReAuth: false,
@@ -20,8 +20,8 @@ var EchofonOverlay = {
     Components.utils.import("resource://echofon/Account.jsm");
 
     // Don't init overlay if the browser window is popup.
-    if (window.toolbar.visible == false) {
-      var btn = this.$("echofon-statusbar-button");;
+    if (!window.toolbar.visible) {
+      var btn = this.$("echofon-statusbar-button");
       var parent = btn.parentNode;
       parent.removeChild(btn);
       return;
@@ -115,7 +115,7 @@ var EchofonOverlay = {
   },
 
   unload: function() {
-    if (window.toolbar.visible == false) return;
+    if (!window.toolbar.visible) return;
 
     var observer = Cc["@mozilla.org/observer-service;1"].getService(Ci.nsIObserverService);
     let obj = this;
@@ -249,7 +249,7 @@ var EchofonOverlay = {
   observe: function(subject, topic, data) {
 
     if (topic == 'quit-application-granted') {
-      EchofonCommon.pref().setBoolPref("openWindowAtLaunch", this.echofonMainWindow() ? true : false);
+      EchofonCommon.pref().setBoolPref("openWindowAtLaunch", !!this.echofonMainWindow());
     }
 
     if (topic != "echofon-status") return;
@@ -273,7 +273,7 @@ var EchofonOverlay = {
   },
 
   showUnreadCount: function(flag) {
-    var isHidden = (flag && parseInt(unreadCountElem.value) > 0) ? false : true;
+    var isHidden = !flag || parseInt(unreadCountElem.value) <= 0;
     this.$('echofon-statusbar-unread-count').setAttribute("hidden", isHidden);
     var toolbar = this.$('echofon-toolbar-button');
     if (toolbar) toolbar.setAttribute("hideUnread", isHidden);
@@ -371,7 +371,7 @@ var EchofonOverlay = {
     // do nothing if window is minimized
     if (window.windowState == Components.interfaces.nsIDOMChromeWindow.STATE_MINIMIZED) return;
 
-    var user_id = EchofonCommon.pref().getIntPref("activeUserId");
+    var user_id = EchofonCommon.pref().getCharPref("activeUserIdStr");
     if (user_id != params.user_id) {
       return;
     }
@@ -511,12 +511,12 @@ var EchofonOverlay = {
 
     while (msg) {
       if (EchofonCommon.pref().getBoolPref("popup-mentions-and-dms")) {
-        if (msg.type != 'mentions' && msg.type != 'message' && msg.has_mention == false) {
+        if (msg.type != 'mentions' && msg.type != 'message' && !msg.has_mention) {
           msg = this._messageQueue.shift();
           continue;
         }
       }
-      else if (msg.unread == false) {
+      else if (!msg.unread) {
         msg = this._messageQueue.shift();
         continue;
       }
@@ -566,7 +566,7 @@ var EchofonOverlay = {
       this.$("echofon-popup").hideBalloon();
     }
     catch (e) {}
-    this._messageQueue = new Array();
+    this._messageQueue = [];
   },
 
   onClickStatusbarIcon: function(e) {
@@ -577,7 +577,7 @@ var EchofonOverlay = {
 
   focusToWindow: function() {
     this.hideBalloon();
-    this._messageQueue = new Array();
+    this._messageQueue = [];
 
     var appMode = EchofonCommon.pref().getCharPref("applicationMode");
     switch(appMode) {
@@ -599,21 +599,21 @@ var EchofonOverlay = {
 
   toggleWindow: function(from_toolbar) {
 
-    if (EchofonCommon.pref().getBoolPref("login") == false || EchofonCommon.pref().getIntPref("activeUserId") == 0) {
+    if (!EchofonCommon.pref().getBoolPref("login") || EchofonCommon.pref().getCharPref("activeUserIdStr") == '') {
       var accounts = EchofonCommon.pref().getCharPref("accounts");
-      if (EchofonCommon.pref().getIntPref("activeUserId") == 0 && accounts == "{}") {
-          EchofonCommon.openPreferences();
-      return;
+      if (EchofonCommon.pref().getCharPref("activeUserIdStr") == '' && accounts == "{}") {
+        EchofonCommon.openPreferences();
+        return;
       }
       EchofonCommon.pref().setBoolPref("login", true);
-      if (EchofonCommon.pref().getIntPref("activeUserId") == 0) {
-        EchofonCommon.pref().setIntPref("activeUserId", EchofonAccountManager.instance().getPrimaryAccount());
+      if (EchofonCommon.pref().getCharPref("activeUserIdStr") == '') {
+        EchofonCommon.pref().setCharPref("activeUserIdStr", EchofonAccountManager.instance().getPrimaryAccount());
       }
       EchofonCommon.notify("initSession");
     }
 
     this.hideBalloon();
-    this._messageQueue = new Array();
+    this._messageQueue = [];
 
     var appMode = EchofonCommon.pref().getCharPref("applicationMode");
     switch(appMode) {
@@ -714,17 +714,17 @@ var EchofonOverlay = {
     }
 
     let accounts = EchofonAccountManager.instance().allAccounts();
-    let user_id = EchofonCommon.pref().getIntPref("activeUserId");
+    let user_id = EchofonCommon.pref().getCharPref("activeUserIdStr");
     let isLogin = EchofonCommon.pref().getBoolPref("login");
 
     for (let i = 0; i < menu.childNodes.length; ++i) {
       let item = menu.childNodes[i];
       if (item.id != 'echofon-menuitem-preference')
-        item.setAttribute("disabled", (isLogin) ? false : true);
+        item.setAttribute("disabled", !isLogin);
     }
     if (EchofonAccountManager.instance().numAccounts() == 1) {
-      menu.lastChild.setAttribute("disabled", false);EchofonCommon.getString((isLogin) ? "logout" : "login");
-      menu.lastChild.setAttribute("label", EchofonCommon.getString((isLogin) ? "logout" : "login"));
+      menu.lastChild.setAttribute("disabled", false);
+      menu.lastChild.setAttribute("label", EchofonCommon.getString(isLogin ? "logout" : "login"));
     }
 
     let items = [];
@@ -744,7 +744,7 @@ var EchofonOverlay = {
         //      item.setAttribute("image", 'http://img.tweetimag.es/i/' + user.screen_name + '_b');
         //      item.className = "menuitem-iconic";
 
-        if (user_id == 0) {
+        if (user_id == '') {
           user_id = user;
         }
 
@@ -765,13 +765,13 @@ var EchofonOverlay = {
 
   changeAccount: function(user_id) {
     this.resetUnreadCount();
-    this._messageQueue = new Array();
+    this._messageQueue = [];
     EchofonCommon.pref().setBoolPref("login", true);
     EchofonCommon.notify("changeAccount", {user_id:user_id});
   },
 
   accountChanged: function() {
-    this._messageQueue = new Array();
+    this._messageQueue = [];
     this.hideBalloon();
   },
 
@@ -783,13 +783,13 @@ var EchofonOverlay = {
   },
 
   onLogout: function() {
-    if (EchofonCommon.pref().getBoolPref("login") == false) {
+    if (!EchofonCommon.pref().getBoolPref("login")) {
       this.changeAccount(EchofonAccountManager.instance().getPrimaryAccount());
       return;
     }
 
     this.resetUnreadCount();
-    this._messageQueue = new Array();
+    this._messageQueue = [];
     this.hideBalloon();
     EchofonCommon.notify("logout");
   },
@@ -840,7 +840,7 @@ var EchofonOverlay = {
 
     this.showMessage(obj.message);
 
-    let user_id = EchofonCommon.pref().getIntPref("activeUserId");
+    let user_id = EchofonCommon.pref().getCharPref("activeUserIdStr");
     let account = EchofonAccountManager.instance().get(user_id);
     if (!account.needToAlertOAuthError()) return;
 
@@ -868,8 +868,8 @@ var EchofonOverlay = {
 
   onFinishOAuth: function(user_id) {
     var account = EchofonAccountManager.instance().get(user_id);
-    if (EchofonCommon.pref().getIntPref("activeUserId") == 0) {
-      EchofonCommon.pref().setIntPref("activeUserId", account.user_id);
+    if (EchofonCommon.pref().getCharPref("activeUserIdStr") == '') {
+      EchofonCommon.pref().setCharPref("activeUserIdStr", account.user_id);
     }
     EchofonCommon.reloadTimeline();
     this._askedToReAuth = false;
@@ -917,7 +917,7 @@ var EchofonOverlay = {
     if (!type) type = "";
     var wm = Cc["@mozilla.org/appshell/window-mediator;1"].getService(Ci.nsIWindowMediator);
     var win = wm.getMostRecentWindow(type);
-    return (win == window) ? true : false;
+    return win == window;
   },
 
   $: function(name) {
@@ -949,13 +949,13 @@ var EchofonOverlay = {
 (function() {
 
   let obj = this;
-    
+
   window.addEventListener("load",       function(e) { obj.load(e);      }, false);
   window.addEventListener("unload",     function(e) { obj.unload(e);    }, false);
   window.addEventListener("resize",     function(e) { obj.resize(e);    }, false);
   window.addEventListener("activate",   function(e) { obj.activate(e);  }, false);
   window.addEventListener("deactivate", function(e) { obj.deactivate(e);}, false);
-    
+
   if (navigator.platform.match("Linux")) {
     window.addEventListener("focus",  function(e) { obj.focus(e);  }, true);
     window.addEventListener("blur",   function(e) { obj.blur(e);   }, true);
@@ -964,4 +964,3 @@ var EchofonOverlay = {
 
 
 }
-

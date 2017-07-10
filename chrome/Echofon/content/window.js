@@ -54,7 +54,7 @@ function onloadWindow()
   var text = $('echofon-textbox');
   if (text) text.focus();
 
-  gAppMode = EchofonCommon.pref().getCharPref("applicationMode")
+  gAppMode = EchofonCommon.pref().getCharPref("applicationMode");
   if (gAppMode == "window") {
     $('echofon-toolbar').setAttribute("mode", "window");
   }
@@ -127,7 +127,7 @@ function loginCompleted()
 
 function delayInitWindow()
 {
-  if (EchofonModel.isInitialized() == false) return;
+  if (!EchofonModel.isInitialized()) return;
   var user_id = this.activeUser();
   if (user_id == 0) return;
   var user = EchofonModel.User.findById(user_id, user_id);
@@ -135,7 +135,7 @@ function delayInitWindow()
 
   var tab = 'home';
   if (gAppMode == "sidebar") {
-    var tab = EchofonCommon.pref().getCharPref("lastTab");
+    tab = EchofonCommon.pref().getCharPref("lastTab");
   }
 
   if (tab != 'home') {
@@ -231,7 +231,7 @@ function updateTimestamp()
     try {
       var created_at = e.created_at;
       if (created_at) {
-        var label = EchofonCommon.getLocalTimeForDate(created_at, appmode == 'window' ? false : true);
+        var label = EchofonCommon.getLocalTimeForDate(created_at, appmode != 'window');
         var orig = e.childNodes[0].nodeValue;
         if (orig != label) {
             e.childNodes[0].nodeValue = label;
@@ -375,7 +375,7 @@ function onScrollTweetBox(event)
   var ad = $('echofon-ad-unit');
   if (activeTab == 'home' && ad) {
     var adHeight = window.getComputedStyle(ad, null).height;
-    adIsVisible((y.value >= parseInt(adHeight)) ?  false : true);
+    adIsVisible(y.value < parseInt(adHeight));
   }
   if (y.value + box.height >= height.value) {
 
@@ -389,7 +389,7 @@ function onScrollTweetBox(event)
       loadMore();
     }
   }
-  if (y.value == 0 && gNoMarkUnread == false) {
+  if (y.value == 0 && !gNoMarkUnread) {
     this.markRead();
   }
   gNoMarkUnread = false;
@@ -438,14 +438,11 @@ function onresizeWindow()
   var w = window.innerWidth - 16;
   var elems = contentBox.container.getElementsByClassName('echofon-status-body');
 
-  for (var i in elems) {
+  for (var i = 0; i < elems.length; i++) {
     var e = elems[i];
-    try {
-      if (e.parentNode && e.parentNode.containerWidth != w) {
-        e.parentNode.containerWidth = w;
-        e.style.width = (w - e.parentNode.padding) + "px";
-      }
-    }catch (err) {}
+    if (e.parentNode) {
+      e.style.width = (w - e.parentNode.padding) + "px";
+    }
   }
   var ad = $('echofon-ad');
   if (ad) {
@@ -588,7 +585,7 @@ function receivedNewTweets(params)
 
   // handle unread border and insert elements
   var border = document.getElementById('echofon-unread-border-' + params.type);
-  var needToAddBorderHeight = (border == null) ? true : false;
+  var needToAddBorderHeight = border == null;
 
   var insertPoint = c.firstChild;
   if (insertPoint.tagName == 'echofon-ad-unit') insertPoint = insertPoint.nextSibling;
@@ -599,7 +596,7 @@ function receivedNewTweets(params)
     c.insertBefore(elem, insertPoint);
   }
 
-  if (border == null || border.unread == false) {
+  if (border == null || !border.unread) {
     if (firstUnreadElem) {
       border = addUnreadBorder(firstUnreadElem, params.type, false);
     }
@@ -776,7 +773,7 @@ function addUnreadBorder(ref, tab, scroll)
 
   var border = document.getElementById('echofon-unread-border-' + tab);
   if (border) {
-    if (border.unread == false) {
+    if (!border.unread) {
       removeUnreadBorder(border, tab);
     }
     else {
@@ -1100,7 +1097,7 @@ function searchTweets(query)
   gActiveQuery = query;
 
   var elem = $('echofon-add-search-button');
-  elem.disabled = (query == '') ? true : false;
+  elem.disabled = query == '';
   if (EchofonModel.SavedSearch.isExist(query, this.activeUser())) {
     elem.label =  '-';
     elem.setAttribute('tooltiptext', EchofonCommon.getString("removeThisSavedSearch"));
@@ -1204,10 +1201,10 @@ function onListSelected(menuitem)
 
 function eventDidReceive(event)
 {
-  if (event.source.id == this.activeUser()) {
+  if (this.isActiveUser(event.source.id)) {
     // The event made by owner (favorite, retweet...)
     if (event.event == 'favorite' || event.event == 'unfavorite') {
-      EchofonUtils.notifyObservers("updateFavorite", {id:event.target_object.id_str, state:(event.event == 'favorite') ? true : false});
+      EchofonUtils.notifyObservers("updateFavorite", {id:event.target_object.id_str, state:event.event == 'favorite'});
     }
   }
   else {
@@ -1234,7 +1231,7 @@ function updateUser(user)
 {
   var compose = composeBar();
   compose.user = user;
-  compose.accountIcon.hidden = EchofonAccountManager.instance().numAccounts() > 1 ? false : true;
+  compose.accountIcon.hidden = EchofonAccountManager.instance().numAccounts() <= 1;
 }
 
 function accountChanged(user)
@@ -1251,7 +1248,7 @@ function accountChanged(user)
 
 function updateAccountIcon()
 {
-  var compose = composeBar().accountIcon.hidden = EchofonAccountManager.instance().numAccounts() > 1 ? false : true;
+  var compose = composeBar().accountIcon.hidden = EchofonAccountManager.instance().numAccounts() <= 1;
 }
 
 function authFail(data)
@@ -1357,8 +1354,8 @@ function changeTab(index)
   $(tabName + "Button").checked = true;
 
   // tweak toolbar
-  $('echofon-list-bar-container').hidden = (activeTab == 'lists') ? false : true;
-  $('echofon-search-bar-container').hidden = (activeTab == 'search') ? false : true;
+  $('echofon-list-bar-container').hidden = activeTab != 'lists';
+  $('echofon-search-bar-container').hidden = activeTab != 'search';
 
   if (activeTab == 'lists') buildListMenu();
   if (activeTab == 'search') {
@@ -1379,7 +1376,7 @@ function changeTab(index)
   updateTimestamp();
   this.onresizeWindow();
 
-  adIsVisible(index == 0 ? true : false);
+  adIsVisible(index == 0);
 }
 
 function nextTab(advance)
@@ -1415,7 +1412,7 @@ function undoRetweet(tweet)
 
 function failedToRetweet(tweet)
 {
-  showMessage("Failed to retweet: " + tweet.text);
+  showMessage("Failed to retweet: " + tweet.full_text);
 }
 
 function tweetDidSend(tweet)
@@ -1540,7 +1537,7 @@ function mute(val, type)
 //
 function updateSyncData(data)
 {
-  if (data.user_id != this.activeUser()) return;
+  if (!this.isActiveUser(data.user_id)) return;
 
   var sync = data.data['sync'];
 
@@ -1560,13 +1557,13 @@ function updateSyncData(data)
 	if (EchofonModel.DBM._64bitsub(id, c.firstChild.getAttribute("messageId")) < 0) {
           c.insertBefore(border, elem);
           border.previousSibling.setAttribute("border", true);
-          if (tab == activeTab && isActiveWindow() == false) {
+          if (tab == activeTab && !isActiveWindow()) {
             this.jumpToUnread(true);
 	  }
 	}
 	else {
 	  markReadToolbar(tab);
-	  if (tab == activeTab && isActiveWindow() == false) {
+	  if (tab == activeTab && !isActiveWindow()) {
             contentBox.scrollbox.ensureElementIsVisible(elem);
 	  }
 	}
@@ -1720,8 +1717,8 @@ function needToReAuth(screen_name)
 
 function onFinishOAuth(user_id) {
   var account = EchofonAccountManager.instance().get(user_id);
-  if (EchofonCommon.pref().getIntPref("activeUserId") == 0) {
-    EchofonCommon.pref().setIntPref("activeUserId", account.user_id);
+  if (EchofonCommon.pref().getCharPref("activeUserIdStr") == '') {
+    EchofonCommon.pref().setCharPref("activeUserIdStr", account.user_id);
   }
   EchofonCommon.reloadTimeline();
 }
@@ -1744,7 +1741,7 @@ function adDidLoad(content)
 function reloadAd()
 {
   g140Timer = null;
-  if (gIsAdVisible == false || gIdleObserver.idle == "idle") {
+  if (!gIsAdVisible || gIdleObserver.idle == "idle") {
     gNeedToReloadAd = true;
     return;
   }
@@ -1774,7 +1771,7 @@ function statsFor140Ads(url)
 
 function replyOn140Ad(obj)
 {
-  var tweet = {id:obj.status.id_str, id_str:obj.status.id_str, text:obj.text, user:obj.user};
+  var tweet = {id:obj.status.id_str, id_str:obj.status.id_str, text:obj.full_text, user:obj.user};
   reply(null, tweet, obj.action_urls.reply_url);
   statsFor140Ads(obj.action_urls.reply_intent_url);
 }
@@ -1782,7 +1779,7 @@ function replyOn140Ad(obj)
 function retweetOn140Ad(obj)
 {
   var prompt = Cc["@mozilla.org/embedcomp/prompt-service;1"].getService(Ci.nsIPromptService);
-  var ret = prompt.confirm(window, "Echofon", EchofonCommon.getFormattedString("ConfirmRetweet", [obj.text]));
+  var ret = prompt.confirm(window, "Echofon", EchofonCommon.getFormattedString("ConfirmRetweet", [obj.full_text]));
   if (ret) {
     EchofonCommon.notify("retweet", {id:obj.status.id_str});
     statsFor140Ads(obj.action_urls.retweet_url);
@@ -1842,7 +1839,7 @@ function removePurchaseMenu()
 //
 function activeUser()
 {
-  return EchofonCommon.pref().getIntPref("activeUserId");
+  return EchofonCommon.pref().getCharPref("activeUserIdStr");
 }
 
 function activeUserName()
@@ -1853,21 +1850,21 @@ function activeUserName()
 
 function isActiveUser(user_id)
 {
-  return (user_id == this.activeUser()) ? true : false;
+  return user_id == this.activeUser();
 }
 
 function notifyStatusToWindows(sts, obj)
 {
   var msg = {"state": sts, "data": obj};
   var data = JSON.stringify(msg);
-  this.Cc["@mozilla.org/observer-service;1"].getService(this.Ci.nsIObserverService).notifyObservers(null, "echofon-status", data);
+  Cc["@mozilla.org/observer-service;1"].getService(Ci.nsIObserverService).notifyObservers(null, "echofon-status", data);
 }
 
 function isActiveWindow()
 {
   var wm = Cc["@mozilla.org/appshell/window-mediator;1"].getService(Ci.nsIWindowMediator);
   var win = wm.getMostRecentWindow("");
-  return (win == window) ? true : false;
+  return win == window;
 }
 
 function $(name)

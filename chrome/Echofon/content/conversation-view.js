@@ -29,13 +29,7 @@ function onload()
   var URI = Cc["@mozilla.org/network/io-service;1"].getService(Ci.nsIIOService).newURI(window.location, null, null);
   var aURL = URI.QueryInterface(Ci.nsIURL);
 
-  var uids = {};
-  if (aURL.query) {
-    var uids = EchofonCommon.parseURLQuery(aURL.query);
-  }
-  else {
-    var uids = EchofonCommon.parseURLQuery(window.arguments[0]);
-  }
+  var uids = EchofonCommon.parseURLQuery(aURL.query ? aURL.query : window.arguments[0]);
 
   account = EchofonAccountManager.instance().get(uids.source);
   gTargetUser = EchofonModel.User.findById(uids.target, account.user_id);
@@ -108,7 +102,7 @@ function onScrollTweetBox(event)
   if (y.value <= 0) {
     var lm = $('echofon-load-more');
     if (lm.noMoreTweet) return;
-    if (lm.spinner == false) {
+    if (!lm.spinner) {
       lm.spinner = true;
       Components.classes["@mozilla.org/timer;1"].createInstance(Components.interfaces.nsITimer).
         initWithCallback({notify: function() {loadMore()}}, 300, Components.interfaces.nsITimer.TYPE_ONE_SHOT);
